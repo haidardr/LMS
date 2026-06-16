@@ -1,191 +1,308 @@
 <?php
 // pages/admin_manage.php
-
-// 1. Hubungkan database dan proteksi halaman admin
 require_once '../includes/config.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// PROTEKSI KETAT: Hanya user dengan peran 'admin' yang boleh masuk ke halaman ini
 if (!isset($_SESSION['user_id']) || $_SESSION['peran'] !== 'admin') {
     header("Location: /php/ppw/UAS/lms-sukses/pages/login.php");
     exit;
 }
 
-// 2. PROSES PENGHAPUSAN DATA (Spesifikasi Minimum No. 5 - DELETE)
-if (isset($_GET['aksi']) && $_GET['aksi'] === 'hapus' && isset($_GET['id'])) {
-    $id_materi_hapus = intval($_GET['id']);
+// =========================================================================
+// API INTERNAL (AJAX): MENANGGAPI PERMINTAAN QUICK LOOK DARI DROPDOWN
+// =========================================================================
+if (isset($_GET['get_quick_look_semester'])) {
+    header('Content-Type: application/json');
+    $id_sem = intval($_GET['get_quick_look_semester']);
     
-    // Menggunakan Prepared Statement untuk keamanan proses delete
-    $query_hapus = "DELETE FROM course_contents WHERE course_contents.id = ?";
-    $stmt_hapus = $koneksi->prepare($query_hapus);
-    $stmt_hapus->bind_param("i", $id_materi_hapus);
+    // Query mengambil statistik khusus matkul di semester terpilih (Tanpa Inisial)
+    $query_ajax = "
+        SELECT courses.nama_matkul, COUNT(course_contents.id) AS jumlah_materi_dibuat
+        FROM courses
+        JOIN course_semester ON courses.id = course_semester.course_id
+        LEFT JOIN course_contents ON courses.id = course_contents.matkul_id
+        WHERE course_semester.semester_id = ?
+        GROUP BY courses.id, courses.nama_matkul
+        ORDER BY courses.is_pilihan ASC, courses.id ASC";
+        
+    $stmt_ajax = $koneksi->prepare($query_ajax);
+    $stmt_ajax->bind_param("i", $id_sem);
+    $stmt_ajax->execute();
+    $hasil_ajax = $stmt_ajax->get_result();
     
-    if ($stmt_hapus->execute()) {
-        // Jika berhasil, redirect kembali ke halaman ini dengan parameter sukses
-        header("Location: /php/ppw/UAS/lms-sukses/pages/admin_manage.php?status=terhapus");
-        exit;
-    } else {
-        $error_sistem = "Gagal menghapus data dari database.";
+    $stat_data = [];
+    while ($row = $hasil_ajax->fetch_assoc()) {
+        $stat_data[] = $row;
     }
-    $stmt_hapus->close();
+    $stmt_ajax->close();
+    
+    echo json_encode($stat_data);
+    exit;
 }
 
-// 3. FITUR READ: Mengambil data dari VIEW Kompleks (Syarat Kelompok Basis Data 1 - Query Complex & View)
-// Kita menggunakan 'view_dashboard_admin' yang sudah kita buat di phpMyAdmin sebelumnya
-$query_view_admin = "SELECT view_dashboard_admin.matkul_id, view_dashboard_admin.nama_matkul, view_dashboard_admin.total_mahasiswa_terdaftar, view_dashboard_admin.jumlah_lulus, view_dashboard_admin.jumlah_materi_dibuat FROM view_dashboard_admin ORDER BY view_dashboard_admin.matkul_id ASC";
-$hasil_view_admin = $koneksi->query($query_view_admin);
+// =========================================================================
+// PROSES DELETE: MENANGGAPI PENGHAPUSAN MODUL
+// =========================================================================
+if (isset($_GET['aksi']) && $_GET['aksi'] === 'hapus' && isset($_GET['id'])) {
+    $id_hapus = intval($_GET['id']);
+    $query_hapus = "DELETE FROM course_contents WHERE course_contents.id = ?";
+    $stmt = $koneksi->prepare($query_hapus);
+    $stmt->bind_param("i", $id_hapus);
+    if($stmt->execute()) { 
+        header("Location: admin_manage.php?status=deleted"); 
+        exit; 
+    }
+    $stmt->close();
+}
 
-// 4. Ambil semua detail konten materi secara mendalam untuk tabel detail CRUD (Query Tanpa Inisial/Alias)
-$query_semua_konten = "SELECT course_contents.id, course_contents.judul_materi, course_contents.tipe_konten, courses.nama_matkul FROM course_contents JOIN courses ON course_contents.matkul_id = courses.id ORDER BY course_contents.id DESC";
-$hasil_semua_konten = $koneksi->query($query_semua_konten);
+// Ambil seluruh master semester untuk dropdown filter & nav-tabs
+$query_all_semester = "SELECT semesters.id, semesters.nama_semester FROM semesters ORDER BY semesters.id ASC";
+$hasil_all_semester = $koneksi->query($query_all_semester);
 
 require_once '../includes/header.php';
 ?>
 
 <div class="container my-4">
-    
-<div class="row align-items-center mb-5 g-4">
-        <div class="col-12 col-xl-6 text-center text-md-start">
-            <h2 class="fw-bold text-dark mb-1 tracking-tight" style="letter-spacing: -0.5px;">Panel Kendali Akademik</h2>
-            <p class="text-muted mb-0 small">Selamat datang Asprak/Ketua Kelas. Kelola modul materi dan pantau kelulusan mahasiswa di sini.</p>
+    <!-- Header Admin - Tetap Rapi -->
+    <div class="row align-items-center mb-5 g-4">
+        <div class="col-12 col-xl-5 text-center text-md-start">
+            <h2 class="fw-bold text-dark mb-1">Panel Kendali Akademik</h2>
+            <p class="text-muted mb-0 small">Kelola modul kuliah dan tinjau hak akses operasional komunitas.</p>
         </div>
-        
-        <div class="col-12 col-xl-6">
+        <div class="col-12 col-xl-7">
             <div class="d-flex flex-wrap justify-content-center justify-content-xl-end align-items-center gap-2">
-                <a href="/php/ppw/UAS/lms-sukses/pages/admin_acc.php" class="btn btn-outline-secondary btn-sm rounded-pill px-3 py-2 fw-medium text-nowrap">
-                    📋 Tinjau Pengajuan
-                </a>
-                
-                <a href="/php/ppw/UAS/lms-sukses/pages/admin_add_matkul.php" class="btn btn-outline-dark btn-sm rounded-pill px-3 py-2 fw-medium text-nowrap">
-                    📚 Kelola Mata Kuliah
-                </a>
-                
-                <a href="/php/ppw/UAS/lms-sukses/pages/admin_add.php" class="btn btn-dark btn-sm rounded-pill px-3 py-2 fw-medium text-nowrap shadow-sm">
-                    + Tambah Materi Kuliah
-                </a>
+                <a href="admin_acc.php" class="btn btn-outline-secondary btn-sm rounded-pill px-3 py-2 fw-medium text-nowrap">📋 Tinjau Pengajuan</a>
+                <a href="admin_add_matkul.php" class="btn btn-outline-dark btn-sm rounded-pill px-3 py-2 fw-medium text-nowrap">📚 Kelola Mata Kuliah</a>
+                <a href="admin_add.php" class="btn btn-dark btn-sm rounded-pill px-3 py-2 fw-medium text-nowrap shadow-sm">+ Tambah Materi Kuliah</a>
             </div>
         </div>
     </div>
 
-    <?php if (isset($_GET['status']) && $_GET['status'] === 'terhapus'): ?>
-        <div class="alert alert-success border-0 rounded-3 small mb-4 shadow-sm" role="alert">
-            🎉 Sukses! Data materi kuliah telah berhasil dihapus dari database secara permanen.
+    <!-- =========================================================================
+        VERSI BARU: QUICK LOOK DENGAN FILTER DROPDOWN (TETAP DI ATAS Khas UI Lama)
+    ========================================================================= -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h5 class="fw-bold text-dark mb-0">📊 Ringkasan Modul Kuliah</h5>
+        <!-- Dropdown Penyeleksi Cepat -->
+        <div style="min-width: 220px;">
+            <select class="form-select form-select-sm rounded-3 text-secondary" id="quickLookFilter">
+                <option value="">-- Intip Semua Semester --</option>
+                <?php 
+                $hasil_all_semester->data_seek(0);
+                while($sem = $hasil_all_semester->fetch_assoc()): 
+                ?>
+                    <option value="<?php echo $sem['id']; ?>"><?php echo htmlspecialchars($sem['nama_semester']); ?></option>
+                <?php endwhile; ?>
+            </select>
         </div>
-    <?php endif; ?>
-    <?php if (isset($_GET['status']) && $_GET['status'] === 'sukses_tambah'): ?>
-        <div class="alert alert-success border-0 rounded-3 small mb-4 shadow-sm" role="alert">
-            🚀 Sukses! Modul materi pembelajaran baru berhasil diterbitkan ke mahasiswa.
-        </div>
-    <?php endif; ?>
-    <?php if (isset($_GET['status']) && $_GET['status'] === 'sukses_edit'): ?>
-        <div class="alert alert-success border-0 rounded-3 small mb-4 shadow-sm" role="alert">
-            ✏️ Sukses! Perubahan materi kuliah telah berhasil diperbarui di sistem.
-        </div>
-    <?php endif; ?>
+    </div>
 
-    <h5 class="fw-bold text-dark mb-3">📈 Monitor Mata Kuliah Aktif</h5>
-    <div class="row g-4 mb-5">
-        <?php if ($hasil_view_admin->num_rows > 0): ?>
-            <?php while ($stat = $hasil_view_admin->fetch_assoc()): ?>
-                <div class="col-12 col-md-4">
-                    <div class="card border-0 shadow-sm bg-white rounded-4 p-3">
-                        <div class="card-body">
-                            <h6 class="fw-bold text-secondary mb-1"><?php echo htmlspecialchars($stat['nama_matkul']); ?></h6>
-                            <hr class="my-2 opacity-50">
-                            <div class="d-flex justify-content-between text-muted small mt-2">
-                                <span>Total Mahasiswa:</span>
-                                <span class="fw-semibold text-dark"><?php echo $stat['total_mahasiswa_terdaftar']; ?> anak</span>
-                            </div>
-                            <div class="d-flex justify-content-between text-muted small">
-                                <span>Lulus KKM (Huruf &ge; C):</span>
-                                <span class="fw-semibold text-success"><?php echo $stat['jumlah_lulus']; ?> anak</span>
-                            </div>
-                            <div class="d-flex justify-content-between text-muted small">
-                                <span>Jumlah Modul Aktif:</span>
-                                <span class="fw-semibold text-primary"><?php echo $stat['jumlah_materi_dibuat']; ?> modul</span>
-                            </div>
-                        </div>
+    <!-- Container Utama Kartu Ringkasan (Akan Dimanipulasi secara Real-time oleh JS) -->
+    <div class="row g-3 mb-5" id="quickLookContainer">
+        <!-- Keadaan Default Saat Pertama Dimuat: Menampilkan Info Awal -->
+        <div class="col-12">
+            <div class="p-4 text-center text-muted bg-white border rounded-4 small">
+                💡 Silakan pilih salah satu tingkatan semester pada menu dropdown di atas untuk mengintip ringkasan modul perkuliahan secara ringkas.
+            </div>
+        </div>
+    </div>
+
+    <!-- =========================================================================
+        MAIN SECTION: MANAJEMEN TABEL MODUL TERPISAH PER SEMESTER
+    ========================================================================= -->
+    <h5 class="fw-bold text-dark mb-3">🗂️ Manajemen Modul Konten</h5>
+    
+    <!-- Navigasi Tab Semester -->
+    <ul class="nav nav-pills gap-1 mb-4 p-2 bg-white border rounded-4 shadow-sm overflow-x-auto flex-nowrap" id="semesterTabs" role="tablist">
+        <?php 
+        $aktif_pertama = true;
+        $hasil_all_semester->data_seek(0);
+        while($sem = $hasil_all_semester->fetch_assoc()): 
+        ?>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link rounded-pill px-3 py-2 small fw-medium text-nowrap <?php echo $aktif_pertama ? 'active bg-dark text-white' : 'text-secondary bg-transparent'; ?>" 
+                        id="tab-sem-<?php echo $sem['id']; ?>" 
+                        data-bs-toggle="tab" 
+                        data-bs-target="#panel-sem-<?php echo $sem['id']; ?>" 
+                        type="button" role="tab">
+                    <?php echo htmlspecialchars($sem['nama_semester']); ?>
+                </button>
+            </li>
+        <?php $aktif_pertama = false; endwhile; ?>
+    </ul>
+
+    <!-- Konten Isi Panel Tab -->
+    <div class="tab-content" id="semesterTabsContent">
+        <?php 
+        $aktif_panel_pertama = true;
+        $hasil_all_semester->data_seek(0);
+        while($sem = $hasil_all_semester->fetch_assoc()): 
+            $id_semester_loop = $sem['id'];
+            
+            $query_konten_per_semester = "
+                SELECT course_contents.id, course_contents.judul_materi, course_contents.tipe_konten, courses.nama_matkul 
+                FROM course_contents 
+                JOIN courses ON course_contents.matkul_id = courses.id 
+                JOIN course_semester ON courses.id = course_semester.course_id 
+                WHERE course_semester.semester_id = ? 
+                ORDER BY courses.is_pilihan ASC, courses.nama_matkul ASC, course_contents.id DESC";
+                
+            $stmt_konten = $koneksi->prepare($query_konten_per_semester);
+            $stmt_konten->bind_param("i", $id_semester_loop);
+            $stmt_konten->execute();
+            $hasil_konten = $stmt_konten->get_result();
+        ?>
+            <div class="tab-pane fade <?php echo $aktif_panel_pertama ? 'show active' : ''; ?>" 
+                 id="panel-sem-<?php echo $id_semester_loop; ?>" 
+                 role="tabpanel">
+                
+                <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <thead class="table-light small">
+                                <tr>
+                                    <th class="ps-4" style="width: 30%;">Mata Kuliah</th>
+                                    <th style="width: 45%;">Judul Modul</th>
+                                    <th style="width: 10%;">Tipe</th>
+                                    <th class="text-end pe-4" style="width: 15%;">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="small text-secondary">
+                                <?php if($hasil_konten->num_rows > 0): while($k = $hasil_konten->fetch_assoc()): ?>
+                                    <tr>
+                                        <td class="ps-4 text-uppercase fw-semibold text-dark"><?php echo $k['nama_matkul']; ?></td>
+                                        <td class="text-uppercase"><?php echo $k['judul_materi']; ?></td>
+                                        <td>
+                                            <?php if($k['tipe_konten'] === 'teks'): ?>
+                                                <span class="badge bg-light text-dark border">Teks</span>
+                                            <?php elseif($k['tipe_konten'] === 'video'): ?>
+                                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Video</span>
+                                            <?php else: ?>
+                                                <span class="badge bg-info-subtle text-info border border-info-subtle">PDF</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="text-end pe-4">
+                                            <div class="d-flex justify-content-end gap-1">
+                                                <a href="admin_edit.php?id=<?php echo $k['id']; ?>" class="btn btn-sm btn-outline-dark rounded-pill px-3">Edit</a>
+                                                <a href="admin_manage.php?id=<?php echo $k['id']; ?>&aksi=hapus" class="btn btn-sm btn-outline-danger rounded-pill px-3 del-btn">Hapus</a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endwhile; else: ?>
+                                    <tr>
+                                        <td colspan="4" class="text-center py-5 text-muted bg-linear-light">
+                                            📭 Belum ada modul materi diterbitkan untuk <?php echo htmlspecialchars($sem['nama_semester']); ?>.
+                                        </td>
+                                    </tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-            <?php endwhile; ?>
-        <?php endif; ?>
-    </div>
 
-    <h5 class="fw-bold text-dark mb-3">🗂️ Daftar Seluruh Modul Konten</h5>
-    <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0 text-small">
-                <thead class="table-light text-secondary small fw-semibold">
-                    <tr>
-                        <th class="ps-4 py-3">Mata Kuliah</th>
-                        <th class="py-3">Judul Modul Pembelajaran</th>
-                        <th class="py-3">Tipe Konten</th>
-                        <th class="text-end pe-4 py-3">Aksi Manajemen</th>
-                    </tr>
-                </thead>
-                <tbody class="small text-secondary">
-                    <?php if ($hasil_semua_konten->num_rows > 0): ?>
-                        <?php while ($konten = $hasil_semua_konten->fetch_assoc()): ?>
-                            <tr>
-                                <td class="ps-4 fw-medium text-dark"><?php echo htmlspecialchars($konten['nama_matkul']); ?></td>
-                                <td><?php echo htmlspecialchars($konten['judul_materi']); ?></td>
-                                <td>
-                                    <span class="badge bg-light text-dark border px-2 py-1 rounded-3 text-capitalize">
-                                        <?php echo $konten['tipe_konten']; ?>
-                                    </span>
-                                </td>
-                                <td class="text-end pe-4">
-                                    <div class="btn-group gap-2">
-                                        <a href="/php/ppw/UAS/lms-sukses/pages/admin_edit.php?id=<?php echo $konten['id']; ?>" class="btn btn-sm btn-outline-dark rounded-pill px-3 py-1">
-                                            Edit
-                                        </a>
-                                        <a href="/php/ppw/UAS/lms-sukses/pages/admin_manage.php?id=<?php echo $konten['id']; ?>&aksi=hapus" class="btn btn-sm btn-outline-danger rounded-pill px-3 py-1 tombol-hapus">
-                                            Hapus
-                                        </a>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endwhile; ?>
-                    <?php else: ?>
-                        <tr>
-                            <td colspan="4" class="text-center py-5 text-muted">
-                                Belum ada modul materi yang tersimpan di database. Silakan klik tombol "+ Tambah Materi Kuliah".
-                            </td>
-                        </tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
+            </div>
+        <?php 
+            $stmt_konten->close();
+            $aktif_panel_pertama = false; 
+        endwhile; 
+        ?>
     </div>
-
 </div>
 
+<!-- =========================================================================
+    JAVASCRIPT INTERAKTIF: AJAX FETCH QUICK LOOK & UTILITY TABS
+========================================================================= -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    
-    // Menangkap seluruh tombol hapus di dalam tabel
-    const kumpulanTombolHapus = document.querySelectorAll('.tombol-hapus');
+    const filterQuickLook = document.getElementById('quickLookFilter');
+    const containerQuickLook = document.getElementById('quickLookContainer');
 
-    // Menerapkan Event Listener murni ke setiap tombol (Spesifikasi JS No. 2 & 4)
-    kumpulanTombolHapus.forEach(function(tombol) {
-        tombol.addEventListener('click', function(event) {
-            
-            // Menampilkan kotak dialog konfirmasi bawaan browser (Spesifikasi Minimum No. 5)
-            const konfirmasiUser = confirm("⚠️ PERINGATAN TINDAKAN:\nApakah Anda yakin ingin menghapus modul materi kuliah ini secara permanen dari database? Tindakan ini tidak dapat dibatalkan.");
-            
-            // Jika user menekan tombol 'Cancel / Batal', gagalkan perpindahan halaman URL $_GET
-            if (!konfirmasiUser) {
-                event.preventDefault();
-            }
+    // 1. LOGIKA INTERAKTIF DROPDOWN QUICK LOOK (FETCH API)
+    filterQuickLook.addEventListener('change', function() {
+        const semesterId = this.value;
+
+        if (semesterId === '') {
+            containerQuickLook.innerHTML = `
+                <div class="col-12">
+                    <div class="p-4 text-center text-muted bg-white border rounded-4 small">
+                        💡 Silakan pilih salah satu tingkatan semester pada menu dropdown di atas untuk mengintip ringkasan modul perkuliahan secara ringkas.
+                    </div>
+                </div>`;
+            return;
+        }
+        
+        containerQuickLook.innerHTML = '<div class="col-12 text-center text-muted small py-3">🔄 Mengambil info ringkasan kurikulum...</div>';
+
+        // Panggil data balik layar ke file ini sendiri
+        fetch(`admin_manage.php?get_quick_look_semester=${semesterId}`)
+            .then(response => response.json())
+            .then(data => {
+                containerQuickLook.innerHTML = ''; // Kosongkan loader
+
+                if (data.length === 0) {
+                    containerQuickLook.innerHTML = `
+                        <div class="col-12">
+                            <div class="p-4 text-center text-muted bg-white border border-dashed rounded-4 small">
+                                📭 Belum ada mata kuliah yang terdaftar di tingkatan semester ini.
+                            </div>
+                        </div>`;
+                } else {
+                    data.forEach(st => {
+                        const cardElement = document.createElement('div');
+                        cardElement.className = 'col-12 col-md-4 col-lg-3';
+                        
+                        // KODE REVISI: Mengembalikan ke UI Minimalis Asli sesuai foto
+                        cardElement.innerHTML = `
+                            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-1 text-uppercase small" style="font-size: 13px; letter-spacing: 0.3px;">
+                                        ${st.nama_matkul}
+                                    </h6>
+                                    <div class="small text-muted mt-3">
+                                        Total Modul: <span class="text-dark fw-bold">${st.jumlah_materi_dibuat}</span>
+                                    </div>
+                                </div>
+                            </div>`;
+                        containerQuickLook.appendChild(cardElement);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error Quick Look:', error);
+                containerQuickLook.innerHTML = '<div class="col-12 text-center text-danger small">⚠️ Gagal mengambil data ringkasan.</div>';
+            });
+    });
+
+    // 2. KONTROL INTERAKTIF TOMBOL TAB HOVER/ACTIVE (Gaya UI Lama)
+    const tabButtons = document.querySelectorAll('#semesterTabs button');
+    tabButtons.forEach(button => {
+        button.addEventListener('shown.bs.tab', function (e) {
+            tabButtons.forEach(btn => {
+                btn.className = "nav-link rounded-pill px-3 py-2 small fw-medium text-nowrap text-secondary bg-transparent";
+            });
+            e.target.className = "nav-link rounded-pill px-3 py-2 small fw-medium text-nowrap active bg-dark text-white";
         });
     });
 
+    // 3. VALIDASI DELETION
+    document.body.addEventListener('click', function(e) {
+        if (e.target.classList.contains('del-btn')) {
+            if (!confirm('Apakah Anda yakin ingin menghapus modul konten ini secara permanen?')) {
+                e.preventDefault();
+            }
+        }
+    });
 });
 </script>
 
-<?php
-require_once '../includes/footer.php';
-?>
+<style>
+    .transition-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.05) !important;
+    }
+</style>
+
+<?php require_once '../includes/footer.php'; ?>
