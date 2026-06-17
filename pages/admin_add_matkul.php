@@ -16,10 +16,17 @@ if (!isset($_SESSION['user_id']) || $_SESSION['peran'] !== 'admin') {
 $pesan_sukses = "";
 $pesan_error = "";
 
-// =========================================================================
-// 2. PROSES PROSES CREATE (TAMBAH DATA) VIA POST
-// =========================================================================
+// Ambil status info dari URL untuk memicu pesan alert
+$status = $_GET['status'] ?? '';
+if ($status === 'saved') {
+    $pesan_sukses = "Mata kuliah berhasil disimpan dan disinkronkan ke dalam kurikulum!";
+} elseif ($status === 'deleted') {
+    $pesan_sukses = "Mata kuliah berhasil dihapus dari direktori sistem.";
+}
 
+// =========================================================================
+// 2. PROSES CREATE (TAMBAH DATA) VIA POST
+// =========================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['tambah_matkul'])) {
     $kode = strtoupper(htmlspecialchars(trim($_POST['kode_matkul']), ENT_QUOTES, 'UTF-8'));
     $nama = strtoupper(htmlspecialchars(trim($_POST['nama_matkul']), ENT_QUOTES, 'UTF-8'));
@@ -42,19 +49,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['tambah_matkul'])) {
             $stmt_pivot->execute();
             $stmt_pivot->close();
             
+            $stmt_courses->close();
             header("Location: admin_add_matkul.php?status=saved");
             exit;
         } else {
-            echo "Gagal menyimpan ke tabel induk.";
+            $pesan_error = "Gagal menyimpan data ke tabel induk mata kuliah.";
         }
         $stmt_courses->close();
+    } else {
+        $pesan_error = "Seluruh kolom wajib diisi dengan benar.";
     }
 }
 
 // =========================================================================
 // 3. PROSES PROCESS DELETE (HAPUS DATA) VIA GET
 // =========================================================================
-
 if (isset($_GET['aksi']) && $_GET['aksi'] === 'hapus' && isset($_GET['id'])) {
     $id_del = intval($_GET['id']);
     
@@ -69,11 +78,12 @@ if (isset($_GET['aksi']) && $_GET['aksi'] === 'hapus' && isset($_GET['id'])) {
     $query_del_courses = "DELETE FROM courses WHERE courses.id = ?";
     $stmt_del_courses = $koneksi->prepare($query_del_courses);
     $stmt_del_courses->bind_param("i", $id_del);
-    $stmt_del_courses->execute();
+    if ($stmt_del_courses->execute()) {
+        $stmt_del_courses->close();
+        header("Location: admin_add_matkul.php?status=deleted");
+        exit;
+    }
     $stmt_del_courses->close();
-    
-    header("Location: admin_add_matkul.php?status=deleted");
-    exit;
 }
 
 // =========================================================================
@@ -83,7 +93,7 @@ if (isset($_GET['aksi']) && $_GET['aksi'] === 'hapus' && isset($_GET['id'])) {
 $query_all_semesters = "SELECT semesters.id, semesters.nama_semester FROM semesters ORDER BY semesters.id ASC";
 $hasil_dropdown_semester = $koneksi->query($query_all_semesters);
 
-// Ambil semua mata kuliah beserta nama semesternya menggunakan Query JOIN Kompleks (Tanpa Inisial)
+// Ambil semua mata kuliah beserta nama semesternya menggunakan Query JOIN
 $query_read_matkul = "SELECT courses.id, courses.kode_matkul, courses.nama_matkul, semesters.nama_semester FROM courses JOIN semesters ON courses.semester_id = semesters.id ORDER BY semesters.id ASC, courses.kode_matkul ASC";
 $hasil_tabel_matkul = $koneksi->query($query_read_matkul);
 
@@ -217,7 +227,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const errorSem     = document.getElementById('errorSem');
     const tombolHapus  = document.querySelectorAll('.tombol-hapus');
 
-    // 1. Validasi Form Submit (Mengecek minimal 2 Field kosong)
+    // 1. Validasi Form Submit
     formMatkul.addEventListener('submit', function(event) {
         let valid = true;
 
@@ -256,7 +266,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // 2. Event Listener Input untuk mengubah teks ketikan menjadi kapital otomatis di layar klien
+    // 2. Mengubah ketikan menjadi kapital otomatis
     inputKode.addEventListener('input', function() {
         inputKode.value = inputKode.value.toUpperCase();
     });
@@ -264,7 +274,7 @@ document.addEventListener('DOMContentLoaded', function() {
         inputNama.value = inputNama.value.toUpperCase();
     });
 
-    // 3. Event Listener Konfirmasi Aksi Hapus (Delete)
+    // 3. Konfirmasi Aksi Hapus
     tombolHapus.forEach(function(tombol) {
         tombol.addEventListener('click', function(event) {
             const konfirmasi = confirm("⚠️ PERINGATAN INTEGRITAS DATA:\nApakah Anda yakin ingin menghapus mata kuliah ini?\nMenghapus mata kuliah induk akan berdampak pada hilangnya akses data materi kuliah terkait di database.");

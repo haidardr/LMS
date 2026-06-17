@@ -7,15 +7,16 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// PROTEKSI KETAT: Hanya Asprak yang boleh meng-ACC Ketua Kelas
-if (!isset($_SESSION['user_id']) || $_SESSION['peran'] !== 'admin' || $_SESSION['username'] !== 'admin_asprak') {
-    die("Akses ditolak. Hanya Asisten Praktikum (Asprak) yang memiliki wewenang ini.");
+// PROTEKSI KETAT: Hanya Asprak yang boleh meng-ACC Ketua Kelas (Penyesuaian Aturan Otoritas Baru)
+if (!isset($_SESSION['user_id']) || $_SESSION['peran'] !== 'admin' || $_SESSION['status_admin'] !== 'asprak') {
+    die("Akses ditolak. Hanya Asisten Praktikum (Asprak) yang memiliki wewenang memproses persetujuan ini.");
 }
 
 // PROSES ACC ATAU TOLAK (Operasi UPDATE Database)
 if (isset($_GET['aksi']) && isset($_GET['user_id'])) {
     $id_user_target = intval($_GET['user_id']);
     $aksi = $_GET['aksi'];
+    $query_acc = "";
 
     if ($aksi === 'setuju') {
         // Jika disetujui, ubah peran menjadi admin, status_admin menjadi ketua_kelas, dan status_pengajuan disetujui
@@ -25,16 +26,19 @@ if (isset($_GET['aksi']) && isset($_GET['user_id'])) {
         $query_acc = "UPDATE users SET users.peran = 'mahasiswa', users.status_admin = 'bukan', users.status_pengajuan = 'ditolak' WHERE users.id = ?";
     }
 
-    $stmt_acc = $koneksi->prepare($query_acc);
-    $stmt_acc->bind_param("i", $id_user_target);
-    if ($stmt_acc->execute()) {
-        header("Location: /php/ppw/UAS/lms-sukses/pages/admin_acc.php?status=sukses");
-        exit;
+    if (!empty($query_acc)) {
+        $stmt_acc = $koneksi->prepare($query_acc);
+        $stmt_acc->bind_param("i", $id_user_target);
+        if ($stmt_acc->execute()) {
+            $stmt_acc->close();
+            header("Location: /php/ppw/UAS/lms-sukses/pages/admin_acc.php?status=sukses");
+            exit;
+        }
+        $stmt_acc->close();
     }
-    $stmt_acc->close();
 }
 
-// Ambil daftar mahasiswa yang status pengajuannya 'pending' (Query Tanpa Inisial)
+// Ambil daftar mahasiswa yang status pengajuannya 'pending'
 $query_request = "SELECT users.id, users.username, users.nama_lengkap FROM users WHERE users.status_pengajuan = 'pending' ORDER BY users.id ASC";
 $hasil_request = $koneksi->query($query_request);
 
@@ -79,8 +83,8 @@ require_once '../includes/header.php';
                                 <td><span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1 rounded-pill">Pending ACC</span></td>
                                 <td class="text-end pe-4">
                                     <div class="btn-group gap-2">
-                                        <a href="admin_acc.php?aksi=setuju&user_id=<?php echo $req['id']; ?>" class="btn btn-sm btn-dark rounded-pill px-3 tombol-konfirmasi" data-pesan="Setujui mahasiswa ini sebagai Ketua Kelas?">ACC</a>
-                                        <a href="admin_acc.php?aksi=tolak&user_id=<?php echo $req['id']; ?>" class="btn btn-sm btn-outline-danger rounded-pill px-3 tombol-konfirmasi" data-pesan="Tolak pengajuan mahasiswa ini?">Tolak</a>
+                                        <a href="admin_acc.php?aksi=setuju&user_id=<?php echo $req['id']; ?>" class="btn btn-sm btn-dark rounded-pill px-3 tombol-konfirmasi" data-pesan=\"Setujui mahasiswa ini sebagai Ketua Kelas?\">ACC</a>
+                                        <a href="admin_acc.php?aksi=tolak&user_id=<?php echo $req['id']; ?>" class="btn btn-sm btn-outline-danger rounded-pill px-3 tombol-konfirmasi" data-pesan=\"Tolak pengajuan mahasiswa ini?\">Tolak</a>
                                     </div>
                                 </td>
                             </tr>
