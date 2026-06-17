@@ -20,8 +20,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password_input = trim($_POST['password']);
 
     if (!empty($username_input) && !empty($password_input)) {
-        // Query nama tabel utuh tanpa inisial sesuai permintaan
-        $query = "SELECT users.id, users.username, users.password, users.nama_lengkap, users.peran FROM users WHERE users.username = ?";
+        // Mengambil kolom status_admin untuk keperluan pembagian wewenang operasional bertingkat
+        $query = "SELECT users.id, users.username, users.password, users.nama_lengkap, users.peran, users.status_admin FROM users WHERE users.username = ?";
         
         if ($stmt = $koneksi->prepare($query)) {
             $stmt->bind_param("s", $username_input);
@@ -37,11 +37,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['username'] = $user['username'];
                     $_SESSION['nama_lengkap'] = $user['nama_lengkap'];
                     $_SESSION['peran'] = $user['peran'];
+                    $_SESSION['status_admin'] = $user['status_admin']; // Menyimpan tingkatan wewenang ke dalam session aktif
 
+                    $stmt->close();
                     header("Location: /php/ppw/UAS/lms-sukses/pages/dashboard.php");
                     exit;
                 } else {
-                    $pesan_error = "Password yang Anda masukkan salah (Gagal Verifikasi Hash).";
+                    $pesan_error = "Password yang Anda masukkan salah.";
                 }
             } else {
                 $pesan_error = "Username tidak ditemukan di database.";

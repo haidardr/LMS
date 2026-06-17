@@ -88,19 +88,19 @@ require_once '../includes/header.php';
                     <form id="formDaftar" action="register.php" method="POST" novalidate>
                         
                         <div class="mb-3">
-                            <label search_for="nama_lengkap" class="form-label small fw-semibold text-secondary">Nama Lengkap *</label>
+                            <label for="nama_lengkap" class="form-label small fw-semibold text-secondary">Nama Lengkap *</label>
                             <input type="text" class="form-control rounded-3" id="nama_lengkap" name="nama_lengkap" placeholder="Nama sesuai KTM">
                             <div id="errorNama" class="text-danger small mt-1 d-none"></div>
                         </div>
 
                         <div class="mb-3">
-                            <label search_for="username" class="form-label small fw-semibold text-secondary">Username Baru *</label>
+                            <label for="username" class="form-label small fw-semibold text-secondary">Username Baru *</label>
                             <input type="text" class="form-control rounded-3" id="username" name="username" placeholder="Gunakan NIM atau inisial">
                             <div id="errorUsername" class="text-danger small mt-1 d-none"></div>
                         </div>
 
                         <div class="mb-4">
-                            <label search_for="password" class="form-label small fw-semibold text-secondary">Password *</label>
+                            <label for="password" class="form-label small fw-semibold text-secondary">Password *</label>
                             <input type="password" class="form-control rounded-3" id="password" name="password" placeholder="••••••••">
                             <div id="errorPassword" class="text-danger small mt-1 d-none"></div>
                             
@@ -148,7 +148,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // JS Validasi Form Submit (Minimal 2 field terpenuhi)
+    // JS Validasi Form Submit
     formDaftar.addEventListener('submit', function(event) {
         let statusValid = true;
 
@@ -173,7 +173,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (inputPassword.value.trim() === '') {
-            errorPassword.textContent = 'Password minimal diisi teks kosong.';
+            errorPassword.textContent = 'Password wajib diisi.';
             errorPassword.classList.remove('d-none');
             inputPassword.classList.add('is-invalid');
             statusValid = false;
