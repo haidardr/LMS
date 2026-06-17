@@ -1,0 +1,144 @@
+/* =========================================================================
+   THEMA TERANG GLASSMORPHISM - LMS SUKSES PREMIUM LIGHT
+   ========================================================================= */
+
+:root {
+    --primary-color: #2563eb;       /* Biru utama */
+    --primary-hover: #1d4ed8;       /* Biru saat hover */
+    --accent-color: #7c3aed;        /* Ungu aksen */
+    --bg-base: #f8fafc;             /* Abu-abu sangat terang untuk dasar */
+    --text-main: #0f172a;           /* Teks utama gelap/kontras */
+    --text-muted: #475569;          /* Teks redup */
+    
+    /* Efek Kaca Terang (White Translucent) */
+    --glass-bg: rgba(255, 255, 255, 0.45); 
+    --glass-border: rgba(255, 255, 255, 0.6);
+    --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.06);
+}
+
+/* Latar Belakang Cerah dengan Gradasi Estetik di Pojok */
+body {
+    font-family : 'poppins', sans-serif;
+    color: var(--text-main);
+    background-color: var(--bg-base);
+    background-image:
+        radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 85% 85%, rgba(168, 85, 247, 0.12) 0%, transparent 50%);
+    background-attachment: fixed;
+    
+    /* --- PERBAIKAN UTAMA: AKTIFKAN FLEXBOX UNTUK FOOTER MENTOK BAWAH --- */
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Memaksa elemen Bootstrap bawaan menjadi transparan agar efek kaca tembus */
+.bg-white, .bg-light {
+    background-color: transparent !important;
+}
+
+/* Efek Kaca pada Navbar */
+nav.navbar {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--glass-border) !important;
+    box-shadow: 0 4px 18px 0 rgba(0, 0, 0, 0.03);
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+}
+
+/* Pengaturan Navigasi Tautan */
+nav a.nav-link {
+    font-size: 15px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+/* KUNCI VISUAL: Menu yang sedang aktif akan langsung berwarna biru utama */
+nav a.nav-link.active {
+    color: var(--primary-color) !important;
+    font-weight: 600; /* Dibuat sedikit lebih tebal agar kontras */
+}
+
+/* Hover Menu Navbar supaya warnanya berubah ke Biru Utama */
+nav a.nav-link:hover {
+    color: var(--primary-color) !important;
+    transform: translateY(-1px);
+}
+
+/* Efek Kaca untuk Komponen Card (Kelas, Modul, dll) */
+.card {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 16px !important;
+    box-shadow: var(--card-shadow);
+    color: var(--text-main);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.1);
+}
+
+/* Transformasi Form Input Menjadi Glassmorphism Terang */
+.form-control, .form-select {
+    background-color: rgba(255, 255, 255, 0.5) !important;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: 1px solid var(--glass-border) !important;
+    color: var(--text-main) !important;
+    border-radius: 10px;
+}
+
+.form-control:focus, .form-select:focus {
+    background-color: rgba(255, 255, 255, 0.8) !important;
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 0.25rem rgba(59, 130, 246, 0.15) !important;
+}
+
+/* Badge Nama Pengguna */
+.badge.bg-light {
+    background-color: rgba(255, 255, 255, 0.6) !important;
+    backdrop-filter: blur(4px);
+    border: 1px solid var(--glass-border) !important;
+    color: var(--text-main) !important;
+}
+
+/* Tombol Bergradasi Mewah */
+.btn-modern-primary {
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    font-weight: 500;
+    padding: 0.6rem 1.5rem;
+    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2);
+    transition: all 0.3s ease;
+}
+
+.btn-modern-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(37, 99, 235, 0.4);
+    color: white;
+}
+
+/* Struktur Tabel */
+.table {
+    --bs-table-bg: rgba(255, 255, 255, 0.2);
+    --bs-table-color: var(--text-main);
+    backdrop-filter: blur(6px);
+}
+
+/* --- PERBAIKAN TAMBAHAN: AMANKAN STRUKTUR PUSH DOWN KONTEN --- */
+.content-wrapper {
+    flex: 1 0 auto; /* Menggunakan shorthand fleksibel agar mendorong secara mutlak */
+}
+
+footer {
+    flex-shrink: 0; /* Menjaga ukuran footer tetap stabil */
+}
