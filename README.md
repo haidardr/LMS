@@ -25,7 +25,7 @@ Aplikasi ini mendemonstrasikan pemenuhan seluruh spesifikasi teknis wajib UAS Pe
 1. Pastikan Anda telah menginstal server lokal seperti **Laragon** atau **XAMPP** di komputer. Aktifkan layanan Apache dan MySQL.
 2. Buka terminal atau Git Bash di direktori server lokal Anda (`www/` pada Laragon atau `htdocs/` pada XAMPP), lalu _clone_ repositori ini:
 
-   git clone https://github.com/USERNAME_KAMU/lms-sukses.git
+   git clone https://github.com/haidardr/LMS.git
 3. Jalankan aplikasi database management (phpMyAdmin / HeidiSQL), buat sebuah database baru dengan nama `lms_sukses`.
 4. Pilih database `lms_sukses`, masuk menu **Import**, lalu pilih berkas `lms-sukses.sql` yang terletak di root direktori proyek ini untuk mengekstrak skema tabel dan sampel data.
 5. Masuk ke dalam folder proyek, lalu buat berkas konfigurasi manual di dalam folder **`includes/config.php`** dengan isi potongan kode berikut:
